@@ -9,10 +9,11 @@
 
 var express = require('express'); // Express web server framework
 var axios = require('axios'); // "Request" library
-var FormData = require('form-data');
+// var FormData = require('form-data');
 var cors = require('cors');
-var querystring = require('qs');
+var qs = require('qs');
 var cookieParser = require('cookie-parser');
+const fs = require('fs').promises
 
 var client_id = 'd650f5c65de24114a7e99a283bf9e002'; // Your client id
 var client_secret = '3d691a8ff8ce4a2c8a991d33e9af9f81'; // Your secret
@@ -47,9 +48,9 @@ app.get('/login', function (req, res) {
     res.cookie(stateKey, state);
 
     // your application requests authorization
-    var scope = 'user-read-private user-read-email';
+    var scope = 'playlist-modify-public playlist-modify-private user-top-read';
     res.redirect('https://accounts.spotify.com/authorize?' +
-        querystring.stringify({
+        qs.stringify({
             response_type: 'code',
             client_id: client_id,
             scope: scope,
@@ -67,9 +68,13 @@ app.get('/callback', function (req, res) {
     var state = req.query.state || null;
     var storedState = req.cookies ? req.cookies[stateKey] : null;
 
+    console.log(code)
+    console.log(state)
+    console.log(storedState)
+
     if (state === null || state !== storedState) {
         res.redirect('/#' +
-            querystring.stringify({
+            qs.stringify({
                 error: 'state_mismatch'
             }));
     } else {
@@ -87,38 +92,47 @@ app.get('/callback', function (req, res) {
         //     json: true
         // };
 
-        var callbackData = new FormData()
-        callbackData.append('code', code, {contentType: 'application/x-www-form-urlencoded'})
-        callbackData.append('grant_type', 'authorization_code')
-        callbackData.append('redirect_uri', redirect_uri)
+
+        // var callbackData = new FormData()
+        // callbackData.append('code', code, {contentType: 'application/x-www-form-urlencoded'})
+        // callbackData.append('grant_type', 'authorization_code')
+        // callbackData.append('redirect_uri', redirect_uri)
+
+        var callbackData = qs.stringify({
+            code: code,
+            grant_type: 'authorization_code',
+            redirect_uri: redirect_uri
+        })
 
         var callbackConfig = {
             method: 'post',
             url: 'https://accounts.spotify.com/api/token',
             headers: {
                 'Authorization': 'Basic ' + (Buffer.from(client_id + ':' + client_secret).toString('base64')),
-                // ...callbackData.getHeaders()
-                'Content-Type': 'application/x-www-form-urlencoded'
+                'Content-Type': 'application/x-www-form-urlencoded',
             },
-            params: callbackData
+            data: callbackData
         }
 
         axios(callbackConfig)
-            .then(function (response) {
-                console.log(JSON.stringify(response.data));
-                var access_token = response.body.access_token,
-                    refresh_token = response.body.refresh_token;
+            .then(async function (response) {
+                console.log(response.data);
+                var access_token = response.data.access_token,
+                    refresh_token = response.data.refresh_token;
+                await fs.writeFile('auth.json', JSON.stringify(response.data))
 
                 // var options = {
                 //     url: 'https://api.spotify.com/v1/me',
                 //     headers: { 'Authorization': 'Bearer ' + access_token },
                 //     json: true
                 // };
+
                 // var apiAccessConfig = {
                 //     method: 'get',
                 //     url: 'https://api.spotify.com/v1/me',
                 //     headers: {
-                //         'Authorization': 'Basic ' + (Buffer.from(client_id + ':' + client_secret).toString('base64'))
+                //         'Authorization': 'Basic ' + (Buffer.from(client_id + ':' + client_secret).toString('base64')),
+                //         'Content-Type': 'application/x-www-form-urlencoded'
                 //     }
                 // }
                 // axios(apiAccessConfig)
@@ -126,24 +140,24 @@ app.get('/callback', function (req, res) {
                 //         console.log(JSON.stringify(response.data));
                 //     })
                 //     .catch(function (error) {
-                //         console.log(error);
+                //         // console.log(error);
                 //     });
                 // // use the access token to access the Spotify Web API
                 // // request.get(options, function (error, response, body) {
                 // //     console.log(body);
                 // // });
 
-                // // we can also pass the token to the browser to make requests from there
-                // res.redirect('/#' +
-                //     querystring.stringify({
-                //         access_token: access_token,
-                //         refresh_token: refresh_token
-                //     }));
+                // we can also pass the token to the browser to make requests from there
+                res.redirect('/#' +
+                    qs.stringify({
+                        access_token: access_token,
+                        refresh_token: refresh_token
+                    }));
             })
             .catch(function (error) {
                 console.log(error)
                 res.redirect('/#' +
-                    querystring.stringify({
+                    qs.stringify({
                         error: 'invalid_token'
                     }));
             });
@@ -183,9 +197,15 @@ app.get('/callback', function (req, res) {
 app.get('/refresh_token', function (req, res) {
     // requesting access token from refresh token
     var refresh_token = req.query.refresh_token;
-    var refreshData = new FormData();
-    refreshData.append('grant_type', 'refresh_token')
-    refreshData.append('refresh_token', refresh_token)
+
+    // var refreshData = new FormData();
+    // refreshData.append('grant_type', 'refresh_token')
+    // refreshData.append('refresh_token', refresh_token)
+
+    var refreshData = qs.stringify({
+        grant_type: 'refresh_token',
+        refresh_token: refresh_token
+    })
 
     // var authOptions = {
     //     method: 'post',
@@ -203,16 +223,16 @@ app.get('/refresh_token', function (req, res) {
         url: 'https://accounts.spotify.com/api/token',
         headers: {
             'Authorization': 'Basic ' + (Buffer.from(client_id + ':' + client_secret).toString('base64')),
-            ...refreshData.getHeaders()
+            'Content-Type': 'application/x-www-form-urlencoded',
         },
-        params: refreshData
+        data: refreshData
     };
 
     axios(config)
         .then(function (response) {
             console.log(JSON.stringify(response.data));
             res.send({
-                'access_token': response.body.access_token
+                'access_token': response.data.access_token
             })
         })
         .catch(function (error) {
