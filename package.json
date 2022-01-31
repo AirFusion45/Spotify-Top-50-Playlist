@@ -1,0 +1,28 @@
+{
+  "name": "spotify-top-50-playlist",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AirFusion45/Spotify-Top-50-Playlist.git"
+  },
+  "author": "AirFusion45",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/AirFusion45/Spotify-Top-50-Playlist/issues"
+  },
+  "homepage": "https://github.com/AirFusion45/Spotify-Top-50-Playlist#readme",
+  "dependencies": {
+    "axios": "^0.25.0",
+    "cookie-parser": "^1.4.6",
+    "cores": "^0.8.5",
+    "cors": "^2.8.5",
+    "express": "^4.17.2",
+    "form-data": "^4.0.0",
+    "qs": "^6.10.3"
+  }
+}
