@@ -169,6 +169,7 @@ app.get('/update', (err, res) => {
     database.connect(async (err, dbClient) => {
         var collectionFind = await dbClient.db('spotifytop50DB').collection('auth').find({ token_type: "Bearer" }).toArray()
         collectionFind = collectionFind[0]
+        res.sendStatus(200) // send 200 now to prevent timeout
         // check if token has expired, if yes, call refreshToken
         if (collectionFind.exp < Date.now()) { // token has expired
             // call refreshToken to refresh token
@@ -189,7 +190,6 @@ app.get('/update', (err, res) => {
                 // check uri db and call https://developer.spotify.com/console/delete-playlist-tracks/ to delete all tracks in playlist
                 var uriCollectionFind = await dbClient.db('spotifytop50DB').collection('uris').find({ _id: ObjectId(process.env.URIDOCID) }).toArray()
                 uriCollectionFind = uriCollectionFind[0].arr
-                res.sendStatus(200) // send 200 now to prevent timeout
                 if (uriCollectionFind !== '') { // uris exist, delete all tracks in playlist
                     console.log('deleting all tracks in playlist')
                     // assemble uri array
