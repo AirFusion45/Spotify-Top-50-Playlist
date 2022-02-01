@@ -6,17 +6,22 @@
  * For more information, read
  * https://developer.spotify.com/web-api/authorization-guide/#authorization_code_flow
  */
-
+require('dotenv').config({ path: '.env' })
 var express = require('express'); // Express web server framework
 var axios = require('axios'); // "Request" library
 // var FormData = require('form-data');
 var cors = require('cors');
 var qs = require('qs');
 var cookieParser = require('cookie-parser');
+const { ObjectId } = require('mongodb');
 const fs = require('fs').promises
+const MongoClient = require('mongodb').MongoClient
+const database = new MongoClient(process.env.MONGOURI, { useNewUrlParser: true, useUnifiedTopology: true })
+// const auth = require('./auth.json')
+
 
 var client_id = 'd650f5c65de24114a7e99a283bf9e002'; // Your client id
-var client_secret = '3d691a8ff8ce4a2c8a991d33e9af9f81'; // Your secret
+var client_secret = process.env.SPOTIFYSECRET; // Your secret
 var redirect_uri = 'http://localhost:8080/callback'; // Your redirect uri
 
 /**
@@ -119,7 +124,15 @@ app.get('/callback', function (req, res) {
                 console.log(response.data);
                 var access_token = response.data.access_token,
                     refresh_token = response.data.refresh_token;
-                await fs.writeFile('auth.json', JSON.stringify(response.data))
+                var writeData = response.data
+                writeData.exp = new Date().getTime() + (response.data.expires_in * 1000)
+                database.connect(async (err, dbClient) => {
+                    if (err) console.error(err)
+                    const collection = dbClient.db('spotifytop50DB').collection('auth')
+                    await collection.updateOne({ token_type: "Bearer" }, { $set: writeData })
+                    database.close()
+                })
+                // await fs.writeFile('auth.json', JSON.stringify(response.data))
 
                 // var options = {
                 //     url: 'https://api.spotify.com/v1/me',
@@ -194,9 +207,10 @@ app.get('/callback', function (req, res) {
     }
 });
 
-app.get('/refresh_token', function (req, res) {
+// app.get('/refresh_token', function (req, res) {
+function refreshToken(refresh_token) {
     // requesting access token from refresh token
-    var refresh_token = req.query.refresh_token;
+    // var refresh_token = req.query.refresh_token;
 
     // var refreshData = new FormData();
     // refreshData.append('grant_type', 'refresh_token')
@@ -229,11 +243,20 @@ app.get('/refresh_token', function (req, res) {
     };
 
     axios(config)
-        .then(function (response) {
+        .then(async function (response) {
             console.log(JSON.stringify(response.data));
-            res.send({
-                'access_token': response.data.access_token
+            var writeData = response.data
+            writeData.exp = new Date().getTime() + (response.data.expires_in * 1000)
+            // await fs.writeFile('auth.json', JSON.stringify(response.data))
+            database.connect(async (err, dbClient) => {
+                if (err) console.error(err)
+                const collection = dbClient.db('spotifytop50DB').collection('auth')
+                await collection.updateOne({ token_type: "Bearer" }, { $set: writeData })
+                database.close()
             })
+            // res.send({
+            //     'access_token': response.data.access_token
+            // })
         })
         .catch(function (error) {
             console.log(error);
@@ -248,8 +271,90 @@ app.get('/refresh_token', function (req, res) {
     //     }
     // });
 
-});
+}
 
+app.get('/update', (err, res) => {
+    database.connect(async (err, dbClient) => {
+        var collectionFind = await dbClient.db('spotifytop50DB').collection('auth').find({ token_type: "Bearer" }).toArray()
+        collectionFind = collectionFind[0]
+        // todo check if token has expired, if yes, make request to /refresh_token
+        if (collectionFind.exp < Date.now()) { // token has expired
+            // make request to /refresh_token
+            // axios.get('http://localhost:8080/refresh_token', {
+            //     params: {
+            //         refresh_token: auth.refresh_token
+            //     }
+            // }).then(function (response) {
+            //     exec()
+            // }).catch(function (error) {
+
+            // })
+            refreshToken(collectionFind.refresh_token)
+        } else {
+            exec()
+        }
+
+        function exec() {
+            var getTop50 = {
+                method: 'get',
+                url: 'https://api.spotify.com/v1/me/top/tracks?time_range=short_term&limit=50&offset=0',
+                headers: {
+                    'Authorization': `Bearer ${collectionFind.access_token}`
+                }
+            }
+            axios(getTop50).then(async function (top50response) {
+                // console.log(JSON.stringify(response.data));
+                // check uri file and call https://developer.spotify.com/console/delete-playlist-tracks/ to delete all tracks in playlist
+                // var uri = require('./uris.json')
+                var uriCollectionFind = await dbClient.db('spotifytop50DB').collection('uris').find({ _id:ObjectId(process.env.URIDOCID) }).toArray()
+                uriCollectionFind = uriCollectionFind[0].arr
+                if (uriCollectionFind !== '') { // uris exist, delete all tracks in playlist
+                    console.log('deleting all tracks in playlist')
+                    // assemble uri array
+                    var rawPayload = {
+                        "tracks": []
+                    }
+                    console.log(uriCollectionFind.length)
+                    for (var i = 0; i < uriCollectionFind.length; i++) {
+                        rawPayload.tracks.push({ "uri": uriCollectionFind[i] })
+                    }
+                    console.log(rawPayload)
+                    // console.log(JSON.stringify(rawPayload))
+                    var deleteOldList = {
+                        method: 'delete',
+                        url: `https://api.spotify.com/v1/playlists/${process.env.PLAYLISTID}/tracks`, // regex the playlist id out later
+                        headers: {
+                            'Authorization': `Bearer ${collectionFind.access_token}`
+                        },
+                        data: JSON.stringify(rawPayload)
+                    }
+                    var deleteOldListResponse = await axios(deleteOldList)
+                    console.log(JSON.stringify(deleteOldListResponse.data))
+                }
+                // write to uris to file, for deletion later on
+                var uriArr = top50response.data.items.map(item => item.uri)
+                const collectionURI = dbClient.db('spotifytop50DB').collection('uris')
+                // await collectionURI.insertOne({ token_type: "Bearer" }, { $set: writeData })
+                await collectionURI.insertOne({ arr: uriArr })
+                // await fs.writeFile('uris.json', JSON.stringify(top50response.data.items.map(item => item.uri)))
+                // uri = require('./uris.json')
+                // https://developer.spotify.com/console/put-playlist-tracks/ - call this with the playlist id from the share link...
+                var addToList = {
+                    method: 'put',
+                    url: `https://api.spotify.com/v1/playlists/${process.env.PLAYLISTID}/tracks?uris=${uriArr.join(',')}`, // regex the playlist id out later
+                    headers: {
+                        'Authorization': `Bearer ${collectionFind.access_token}`
+                    }
+                }
+                var addToListResponse = await axios(addToList)
+                console.log(JSON.stringify(addToListResponse.data));
+                res.sendStatus(200)
+            }).catch(function (error) {
+                console.log(error);
+            });
+        }
+    })
+})
 app.listen(8080, () => {
     console.log(`Listening at http://localhost:${8080}`)
 })
