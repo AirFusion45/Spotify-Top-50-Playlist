@@ -6,7 +6,7 @@
  * For more information, read
  * https://developer.spotify.com/web-api/authorization-guide/#authorization_code_flow
  */
-require('dotenv').config({ path: '.env' })
+// require('dotenv').config({ path: '.env' })
 var express = require('express'); // Express web server framework
 var axios = require('axios'); // "Request" library
 // var FormData = require('form-data');
