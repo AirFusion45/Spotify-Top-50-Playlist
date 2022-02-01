@@ -169,14 +169,13 @@ app.get('/update', (err, res) => {
     database.connect(async (err, dbClient) => {
         var collectionFind = await dbClient.db('spotifytop50DB').collection('auth').find({ token_type: "Bearer" }).toArray()
         collectionFind = collectionFind[0]
-        res.sendStatus(200) // send 200 now to prevent timeout
         // check if token has expired, if yes, call refreshToken
         if (collectionFind.exp < Date.now()) { // token has expired
             // call refreshToken to refresh token
             await refreshToken(collectionFind.refresh_token)
         }
         exec()
-
+        res.sendStatus(200) // send 200 now to prevent timeout
 
         function exec() {
             var getTop50 = {
