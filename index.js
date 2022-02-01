@@ -6,7 +6,10 @@
  * For more information, read
  * https://developer.spotify.com/web-api/authorization-guide/#authorization_code_flow
  */
-// require('dotenv').config({ path: '.env' })
+const mode = 'prod'
+if (mode === 'dev') {
+    require('dotenv').config({ path: '.env' })
+} 
 var express = require('express'); // Express web server framework
 var axios = require('axios'); // "Request" library
 // var FormData = require('form-data');
@@ -22,7 +25,12 @@ const database = new MongoClient(process.env.MONGOURI, { useNewUrlParser: true, 
 
 var client_id = 'd650f5c65de24114a7e99a283bf9e002'; // Your client id
 var client_secret = process.env.SPOTIFYSECRET; // Your secret
-var redirect_uri = 'http://localhost:8080/callback'; // Your redirect uri
+if (mode === 'prod') {
+    var redirect_uri = 'http://spotify-top-50-playlist.vercel.app/callback'; // Your redirect uri
+} else {
+    var redirect_uri = 'http://localhost:8080/callback'; // Your redirect uri
+}
+
 
 /**
  * Generates a random string containing numbers and letters
