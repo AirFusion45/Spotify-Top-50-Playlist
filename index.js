@@ -97,6 +97,8 @@ app.get('/callback', function (req, res) {
         axios(callbackConfig)
             .then(async function (response) {
                 var writeData = response.data
+                var access_token = response.data.access_token,
+                    refresh_token = response.data.refresh_token;
                 writeData.exp = new Date().getTime() + (response.data.expires_in * 1000)
                 database.connect(async (err, dbClient) => {
                     if (err) console.error(err)
@@ -106,12 +108,12 @@ app.get('/callback', function (req, res) {
                 })
 
                 // we can also pass the token to the browser to make requests from there - hiding this as of now so people dont take the account token.
-                /* res.redirect('/#' +
+                res.redirect('/#' +
                     qs.stringify({
                         access_token: access_token,
                         refresh_token: refresh_token
                     }));
-                    */
+
             })
             .catch(function (error) {
                 console.log(error)
