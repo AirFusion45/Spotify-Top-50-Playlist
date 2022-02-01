@@ -125,45 +125,46 @@ app.get('/callback', function (req, res) {
     }
 });
 
-
-function refreshToken(refresh_token) {
+app.get('/refresh_token', function (req, res) {
+    // function refreshToken(refresh_token) {
     // requesting access token from refresh token
-    return new Promise((resolve, reject) => {
+    // return new Promise((resolve, reject) => {
 
-        var refreshData = qs.stringify({
-            grant_type: 'refresh_token',
-            refresh_token: refresh_token
-        })
-
-
-        var config = {
-            method: 'post',
-            url: 'https://accounts.spotify.com/api/token',
-            headers: {
-                'Authorization': 'Basic ' + (Buffer.from(client_id + ':' + client_secret).toString('base64')),
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            data: refreshData
-        };
-
-        axios(config)
-            .then(async function (response) {
-                console.log(JSON.stringify(response.data));
-                var writeData = response.data
-                writeData.exp = new Date().getTime() + (response.data.expires_in * 1000)
-                // await fs.writeFile('auth.json', JSON.stringify(response.data))
-                database.connect(async (err, dbClient) => {
-                    if (err) console.error(err)
-                    const collection = dbClient.db('spotifytop50DB').collection('auth')
-                    await collection.updateOne({ token_type: "Bearer" }, { $set: writeData })
-                    database.close()
-                })
-            })
-            .catch(function (error) {
-                console.log(error);
-            });
+    var refreshData = qs.stringify({
+        grant_type: 'refresh_token',
+        refresh_token: refresh_token
     })
-}
+
+
+    var config = {
+        method: 'post',
+        url: 'https://accounts.spotify.com/api/token',
+        headers: {
+            'Authorization': 'Basic ' + (Buffer.from(client_id + ':' + client_secret).toString('base64')),
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        data: refreshData
+    };
+
+    axios(config)
+        .then(async function (response) {
+            console.log(JSON.stringify(response.data));
+            var writeData = response.data
+            writeData.exp = new Date().getTime() + (response.data.expires_in * 1000)
+            // await fs.writeFile('auth.json', JSON.stringify(response.data))
+            database.connect(async (err, dbClient) => {
+                if (err) console.error(err)
+                const collection = dbClient.db('spotifytop50DB').collection('auth')
+                await collection.updateOne({ token_type: "Bearer" }, { $set: writeData })
+                database.close()
+                res.sendStatus(200)
+            })
+        })
+        .catch(function (error) {
+            console.log(error);
+        });
+    // })
+})
 
 app.get('/update', (err, res) => {
     database.connect(async (err, dbClient) => {
@@ -175,7 +176,6 @@ app.get('/update', (err, res) => {
             await refreshToken(collectionFind.refresh_token)
         }
         exec()
-        res.sendStatus(200) // send 200 now to prevent timeout
 
         function exec() {
             var getTop50 = {
@@ -227,6 +227,7 @@ app.get('/update', (err, res) => {
                 }
                 var addToListResponse = await axios(addToList)
                 console.log(JSON.stringify(addToListResponse.data));
+                res.sendStatus(200) // send 200
             }).catch(function (error) {
                 console.log(error);
             });
