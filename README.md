@@ -1,4 +1,6 @@
 # Spotify-Top-50-Playlist
+[![Nightly-minute-cron](https://github.com/AirFusion45/Spotify-Top-50-Playlist/actions/workflows/main.yml/badge.svg?branch=main&event=schedule)](https://github.com/AirFusion45/Spotify-Top-50-Playlist/actions/workflows/main.yml)
+
 A quick helper function to update a Spotify Playlist with the private Top 50 tracks this month. Made using Express.js & the Spotify API.
 
 ## Build from Source
