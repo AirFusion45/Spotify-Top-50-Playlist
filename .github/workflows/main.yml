@@ -9,4 +9,5 @@ jobs:
       - name: Call our API route
         run: |
           curl --location --request GET 'https://spotify-top-50-playlist.vercel.app/refresh_token'
+          sleep 5
           curl --location --request GET 'https://spotify-top-50-playlist.vercel.app/update'
