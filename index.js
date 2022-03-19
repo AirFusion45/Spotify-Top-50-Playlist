@@ -220,7 +220,7 @@ app.get('/update', (err, res) => {
                 var uriArr = top50response.data.items.map(item => item.uri)
                 const collectionURI = dbClient.db('spotifytop50DB').collection('uris')
 
-                await collectionURI.insertOne({ arr: uriArr })
+                await collectionURI.insertOne({ arr: uriArr, expireAt: new Date()})
 
                 // https://developer.spotify.com/console/put-playlist-tracks/ - call this with the playlist id from the share link...
                 var addToList = {
